@@ -451,6 +451,58 @@
       color: var(--text);
     }
 
+    .clock-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 0.85rem;
+    }
+
+    .clock-box {
+      padding: 0.85rem 0.95rem;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+    }
+
+    .clock-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .clock-time {
+      font-size: 1.65rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      font-variant-numeric: tabular-nums;
+      margin-top: 0.25rem;
+      line-height: 1.15;
+    }
+
+    .tz-form {
+      display: flex;
+      gap: 0.35rem;
+      flex-wrap: wrap;
+      margin-top: 0.55rem;
+    }
+
+    .tz-form[hidden] {
+      display: none;
+    }
+
+    .tz-form select {
+      flex: 1;
+      min-width: 140px;
+      font: inherit;
+      font-size: 0.82rem;
+      padding: 0.3rem 0.5rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+    }
+
     .notes-area {
       width: 100%;
       min-height: 118px;
@@ -528,6 +580,49 @@
     </header>
 
     <main class="grid">
+      <section class="card full">
+        <div class="card-head">
+          <h2>World Clock</h2>
+          <button type="button" id="clock-fmt-btn" class="btn-sm" aria-pressed="false">24h</button>
+        </div>
+        <div class="clock-grid">
+          <div class="clock-box">
+            <div class="clock-head">
+              <span class="stat-label">Local Time</span>
+              <span class="sub" id="clock-local-tz" style="margin:0;font-size:0.75rem;">--</span>
+            </div>
+            <div class="clock-time" id="clock-local-time">--:--:--</div>
+            <div class="sub" id="clock-local-date">--</div>
+          </div>
+
+          <div class="clock-box">
+            <div class="clock-head">
+              <span class="stat-label">GMT / UTC</span>
+              <span class="sub" style="margin:0;font-size:0.75rem;">Etc/GMT</span>
+            </div>
+            <div class="clock-time" id="clock-gmt-time">--:--:--</div>
+            <div class="sub" id="clock-gmt-date">--</div>
+          </div>
+
+          <div class="clock-box">
+            <div class="clock-head">
+              <span class="stat-label">Custom</span>
+              <button type="button" id="tz-edit-btn" class="btn-sm" style="padding:0.15rem 0.5rem;font-size:0.75rem;">Edit</button>
+            </div>
+            <div class="clock-time" id="clock-custom-time">--:--:--</div>
+            <div class="sub" id="clock-custom-date">--</div>
+            <div class="sub" id="clock-custom-tz" style="font-size:0.75rem;">--</div>
+            <form class="tz-form" id="tz-form" hidden>
+              <label for="tz-select" style="position:absolute;width:1px;height:1px;overflow:hidden;">Select time zone</label>
+              <select id="tz-select"></select>
+              <button type="submit" class="primary btn-sm">Save</button>
+              <button type="button" id="tz-reset-btn" class="btn-sm">Local</button>
+              <button type="button" id="tz-cancel-btn" class="btn-sm">Cancel</button>
+            </form>
+          </div>
+        </div>
+      </section>
+
       <section class="card">
         <div class="card-head">
           <h2>Onboard LED</h2>
@@ -861,6 +956,14 @@
         dashTitleEl.textContent = d.dashboard_title;
         document.title = d.dashboard_title;
       }
+
+      if (d.custom_tz !== undefined && tzForm.hidden) {
+        const nextTz = d.custom_tz || localTz;
+        if (nextTz !== customTz) {
+          customTz = nextTz;
+          updateClocks();
+        }
+      }
     }
 
     async function setLed(mode, text = "") {
@@ -918,6 +1021,135 @@
 
     updateDate();
     setInterval(updateDate, 60 * 1000);
+
+    // World Clock (Local, GMT, and user-editable timezone defaulting to local)
+    const localTz = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+    let customTz = localTz;
+    let use24h = localStorage.getItem("pico_clock_24h") === "1";
+
+    const clockFmtBtn = document.getElementById("clock-fmt-btn");
+    const tzEditBtn = document.getElementById("tz-edit-btn");
+    const tzForm = document.getElementById("tz-form");
+    const tzSelect = document.getElementById("tz-select");
+    const tzResetBtn = document.getElementById("tz-reset-btn");
+    const tzCancelBtn = document.getElementById("tz-cancel-btn");
+
+    const fallbackTzs = [
+      "UTC", "America/New_York", "America/Chicago", "America/Denver",
+      "America/Los_Angeles", "America/Sao_Paulo", "Europe/London",
+      "Europe/Paris", "Europe/Berlin", "Asia/Dubai", "Asia/Kolkata",
+      "Asia/Singapore", "Asia/Manila", "Asia/Tokyo", "Asia/Seoul",
+      "Australia/Sydney", "Pacific/Auckland",
+    ];
+    const allTzs = typeof Intl.supportedValuesOf === "function"
+      ? Intl.supportedValuesOf("timeZone")
+      : fallbackTzs;
+    const tzOptions = allTzs.includes(localTz) ? allTzs : [localTz, ...allTzs];
+    tzOptions.forEach((tz) => {
+      const opt = document.createElement("option");
+      opt.value = tz;
+      opt.textContent = tz;
+      tzSelect.appendChild(opt);
+    });
+
+    function formatZoneParts(tz) {
+      const timeOpts = {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: !use24h,
+      };
+      const dateOpts = {
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+      };
+      try {
+        if (typeof Temporal !== "undefined" && Temporal.Now && Temporal.Now.zonedDateTimeISO) {
+          const zdt = Temporal.Now.zonedDateTimeISO(tz);
+          return {
+            time: zdt.toLocaleString(undefined, timeOpts),
+            date: zdt.toLocaleString(undefined, dateOpts),
+          };
+        }
+        const now = new Date();
+        return {
+          time: new Intl.DateTimeFormat(undefined, { ...timeOpts, timeZone: tz }).format(now),
+          date: new Intl.DateTimeFormat(undefined, { ...dateOpts, timeZone: tz }).format(now),
+        };
+      } catch (e) {
+        return { time: "--:--:--", date: "Invalid TZ" };
+      }
+    }
+
+    function updateClocks() {
+      const loc = formatZoneParts(localTz);
+      document.getElementById("clock-local-time").textContent = loc.time;
+      document.getElementById("clock-local-date").textContent = loc.date;
+      document.getElementById("clock-local-tz").textContent = localTz;
+
+      const gmt = formatZoneParts("Etc/GMT");
+      document.getElementById("clock-gmt-time").textContent = gmt.time;
+      document.getElementById("clock-gmt-date").textContent = gmt.date;
+
+      const cust = formatZoneParts(customTz);
+      document.getElementById("clock-custom-time").textContent = cust.time;
+      document.getElementById("clock-custom-date").textContent = cust.date;
+      document.getElementById("clock-custom-tz").textContent =
+        customTz === localTz ? `${customTz} (Local)` : customTz;
+    }
+
+    function syncClockFmtUI() {
+      clockFmtBtn.textContent = use24h ? "24h" : "12h";
+      clockFmtBtn.setAttribute("aria-pressed", String(use24h));
+    }
+
+    clockFmtBtn.addEventListener("click", () => {
+      use24h = !use24h;
+      localStorage.setItem("pico_clock_24h", use24h ? "1" : "0");
+      syncClockFmtUI();
+      updateClocks();
+    });
+
+    tzEditBtn.addEventListener("click", () => {
+      tzForm.hidden = !tzForm.hidden;
+      if (!tzForm.hidden) {
+        tzSelect.value = customTz;
+        tzSelect.focus();
+      }
+    });
+
+    tzCancelBtn.addEventListener("click", () => {
+      tzForm.hidden = true;
+    });
+
+    async function saveCustomTz(tzValue) {
+      try {
+        const res = await fetch("/api/timezone", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ timezone: tzValue }),
+        });
+        if (res.ok) {
+          customTz = tzValue || localTz;
+          updateClocks();
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        tzForm.hidden = true;
+      }
+    }
+
+    tzResetBtn.addEventListener("click", () => saveCustomTz(""));
+    tzForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      saveCustomTz(tzSelect.value);
+    });
+
+    syncClockFmtUI();
+    updateClocks();
+    setInterval(updateClocks, 1000);
 
     poll();
     setInterval(poll, 2000);

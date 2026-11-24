@@ -36,6 +36,7 @@ NOTES_FILE = "notes.txt"
 MAX_NOTES_BYTES = 4096
 TITLE_FILE = "title.txt"
 DEFAULT_TITLE = "Raspberry Pi Pico W"
+TZ_FILE = "timezone.txt"
 
 if not WIFI_SSID or not WIFI_PASSWORD:
     raise RuntimeError(
@@ -163,6 +164,26 @@ def write_title(text):
 dashboard_title = read_title()
 
 
+def read_custom_tz():
+    try:
+        with open(TZ_FILE, "r") as f:
+            return f.read(64).strip()
+    except OSError:
+        return ""
+
+
+def write_custom_tz(tz):
+    global custom_tz
+    clean = str(tz).strip()[:64]
+    with open(TZ_FILE, "w") as f:
+        f.write(clean)
+    custom_tz = clean
+    return clean
+
+
+custom_tz = read_custom_tz()
+
+
 async def delayed_reboot():
     await asyncio.sleep_ms(300)
     machine.reset()
@@ -206,6 +227,7 @@ def get_status():
         "unique_clients": len(client_last_seen),
         "requests_total": requests_total,
         "dashboard_title": dashboard_title,
+        "custom_tz": custom_tz,
     }
 
 
@@ -507,6 +529,15 @@ async def handle_client(reader, writer):
                 return
             saved = write_title(data.get("title", ""))
             await send_json(writer, {"ok": True, "dashboard_title": saved})
+
+        elif method == "POST" and path == "/api/timezone":
+            try:
+                data = json.loads(body.decode("utf-8")) if body else {}
+            except ValueError:
+                await send_json(writer, {"error": "Invalid JSON"}, "400 Bad Request")
+                return
+            saved = write_custom_tz(data.get("timezone", ""))
+            await send_json(writer, {"ok": True, "custom_tz": saved})
 
         elif method == "POST" and path == "/api/reboot":
             await send_json(writer, {"ok": True, "message": "Rebooting Pico W..."})
