@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light dark">
+  <title>Pico W Dashboard</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+
+      --bg-light: #f4f6f9;
+      --bg-dark: #0f141c;
+      --surface-light: #ffffff;
+      --surface-dark: #18202c;
+      --border-light: #dde3ec;
+      --border-dark: #2a3546;
+      --text-light: #161d29;
+      --text-dark: #e8eef7;
+      --muted-light: #5c687a;
+      --muted-dark: #93a3b8;
+      --accent-light: #0066cc;
+      --accent-dark: #4ea8ff;
+      --accent-fg-light: #ffffff;
+      --accent-fg-dark: #071525;
+      --ok-light: #15803d;
+      --ok-dark: #4ade80;
+      --warn-light: #b45309;
+      --warn-dark: #fbbf24;
+      --err-light: #b91c1c;
+      --err-dark: #f87171;
+
+      --bg: var(--bg-light);
+      --surface: var(--surface-light);
+      --border: var(--border-light);
+      --text: var(--text-light);
+      --muted: var(--muted-light);
+      --accent: var(--accent-light);
+      --accent-fg: var(--accent-fg-light);
+      --ok: var(--ok-light);
+      --warn: var(--warn-light);
+      --err: var(--err-light);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: var(--bg-dark);
+        --surface: var(--surface-dark);
+        --border: var(--border-dark);
+        --text: var(--text-dark);
+        --muted: var(--muted-dark);
+        --accent: var(--accent-dark);
+        --accent-fg: var(--accent-fg-dark);
+        --ok: var(--ok-dark);
+        --warn: var(--warn-dark);
+        --err: var(--err-dark);
+      }
+    }
+
+    @supports (color: light-dark(white, black)) {
+      :root {
+        --bg: light-dark(var(--bg-light), var(--bg-dark));
+        --surface: light-dark(var(--surface-light), var(--surface-dark));
+        --border: light-dark(var(--border-light), var(--border-dark));
+        --text: light-dark(var(--text-light), var(--text-dark));
+        --muted: light-dark(var(--muted-light), var(--muted-dark));
+        --accent: light-dark(var(--accent-light), var(--accent-dark));
+        --accent-fg: light-dark(var(--accent-fg-light), var(--accent-fg-dark));
+        --ok: light-dark(var(--ok-light), var(--ok-dark));
+        --warn: light-dark(var(--warn-light), var(--warn-dark));
+        --err: light-dark(var(--err-light), var(--err-dark));
+      }
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      accent-color: var(--accent);
+    }
+
+    .wrap {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 1.25rem;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 1.25rem;
+      flex-wrap: wrap;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 1.4rem;
+      letter-spacing: -0.02em;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      padding: 0.3rem 0.75rem;
+      border-radius: 999px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      border: 1px solid var(--border);
+      background: var(--surface);
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--muted);
+      display: inline-block;
+    }
+
+    .dot.ok { background: var(--ok); }
+    .dot.err { background: var(--err); }
+    .dot.led-on { background: var(--ok); box-shadow: 0 0 10px var(--ok); }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1rem;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1.15rem;
+    }
+
+    .card.full {
+      grid-column: 1 / -1;
+    }
+
+    .card-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.85rem;
+    }
+
+    .card h2 {
+      margin: 0;
+      font-size: 0.95rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+    }
+
+    .big-num {
+      font-size: 2.35rem;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      line-height: 1.1;
+    }
+
+    .sub {
+      color: var(--muted);
+      font-size: 0.9rem;
+      margin-top: 0.25rem;
+    }
+
+    .btn-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0.5rem;
+      margin-bottom: 0.9rem;
+    }
+
+    button {
+      font: inherit;
+      font-weight: 600;
+      font-size: 0.9rem;
+      padding: 0.55rem 0.75rem;
+      border-radius: 9px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text);
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s, color 0.15s;
+    }
+
+    button:hover {
+      border-color: var(--accent);
+    }
+
+    button[aria-pressed="true"],
+    button.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: var(--accent-fg);
+    }
+
+    .morse-form {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .morse-form input {
+      flex: 1;
+      min-width: 0;
+      font: inherit;
+      padding: 0.5rem 0.75rem;
+      border-radius: 9px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    .spark-wrap {
+      margin-top: 0.85rem;
+    }
+
+    .spark-wrap svg {
+      width: 100%;
+      height: 84px;
+      display: block;
+      overflow: visible;
+    }
+
+    .spark-meta {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.78rem;
+      color: var(--muted);
+      margin-top: 0.25rem;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 0.85rem;
+    }
+
+    .stat-label {
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
+    .stat-val {
+      font-size: 1.15rem;
+      font-weight: 600;
+      margin-top: 0.1rem;
+    }
+
+    .bar {
+      height: 8px;
+      border-radius: 999px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      overflow: hidden;
+      margin-top: 0.4rem;
+    }
+
+    .bar-fill {
+      height: 100%;
+      background: var(--accent);
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+
+    .news-controls {
+      display: flex;
+      gap: 0.45rem;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-bottom: 0.85rem;
+    }
+
+    .news-controls button {
+      padding: 0.35rem 0.7rem;
+      font-size: 0.82rem;
+    }
+
+    .news-controls .spacer {
+      margin-left: auto;
+    }
+
+    .news-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: grid;
+      gap: 0.55rem;
+    }
+
+    .news-item {
+      padding-bottom: 0.55rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .news-item:last-child {
+      padding-bottom: 0;
+      border-bottom: none;
+    }
+
+    .news-item a {
+      color: var(--text);
+      text-decoration: none;
+      font-weight: 500;
+      display: block;
+    }
+
+    .news-item a:hover {
+      color: var(--accent);
+      text-decoration: underline;
+    }
+
+    .news-meta {
+      font-size: 0.78rem;
+      color: var(--muted);
+      margin-top: 0.15rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>Raspberry Pi Pico W</h1>
+        <div class="sub" id="net-info">Connecting...</div>
+      </div>
+      <div class="badge" aria-live="polite">
+        <span class="dot" id="conn-dot"></span>
+        <span id="conn-text">Loading</span>
+      </div>
+    </header>
+
+    <main class="grid">
+      <section class="card">
+        <div class="card-head">
+          <h2>Onboard LED</h2>
+          <span class="badge">
+            <span class="dot" id="led-dot"></span>
+            <span id="led-label">Off</span>
+          </span>
+        </div>
+
+        <div class="btn-row" role="group" aria-label="LED mode">
+          <button type="button" data-mode="off" aria-pressed="false">Off</button>
+          <button type="button" data-mode="on" aria-pressed="false">On</button>
+          <button type="button" data-mode="blink" aria-pressed="false">Blink</button>
+          <button type="button" data-mode="heartbeat" aria-pressed="false">Pulse</button>
+        </div>
+
+        <form class="morse-form" id="morse-form">
+          <label for="morse-input" style="position:absolute;width:1px;height:1px;overflow:hidden;">Morse code text</label>
+          <input id="morse-input" type="text" maxlength="40" placeholder="Flash Morse (e.g. SOS)" autocomplete="off">
+          <button type="submit" class="primary">Morse</button>
+        </form>
+        <div class="sub" id="morse-status" aria-live="polite"></div>
+      </section>
+
+      <section class="card">
+        <div class="card-head">
+          <h2>RP2040 Die Temp</h2>
+          <span class="sub" id="temp-f">-- &deg;F</span>
+        </div>
+        <div class="big-num" id="temp-c">--.- &deg;C</div>
+        <div class="spark-wrap">
+          <svg viewBox="0 0 300 80" preserveAspectRatio="none" aria-label="Recent temperature trend">
+            <polyline id="spark-line" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" points=""></polyline>
+          </svg>
+          <div class="spark-meta">
+            <span id="spark-min">Min: --</span>
+            <span>Last 60s</span>
+            <span id="spark-max">Max: --</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="card full">
+        <div class="card-head">
+          <h2>System Telemetry</h2>
+          <span class="sub" id="cpu-info">-- MHz</span>
+        </div>
+        <div class="stats">
+          <div>
+            <div class="stat-label">Wi-Fi Signal</div>
+            <div class="stat-val" id="rssi-val">-- dBm</div>
+            <div class="sub" id="rssi-qual">&nbsp;</div>
+          </div>
+          <div>
+            <div class="stat-label">Uptime</div>
+            <div class="stat-val" id="uptime-val">--</div>
+            <div class="sub" id="ip-val">--</div>
+          </div>
+          <div>
+            <div class="stat-label">RAM Usage</div>
+            <div class="stat-val" id="ram-val">-- KB</div>
+            <div class="bar"><div class="bar-fill" id="ram-bar"></div></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card full">
+        <div class="card-head">
+          <h2>News Headlines</h2>
+          <span class="sub" id="news-updated">Loading...</span>
+        </div>
+        <div class="news-controls" role="group" aria-label="News feed">
+          <button type="button" data-feed="world" aria-pressed="true">World</button>
+          <button type="button" data-feed="tech" aria-pressed="false">Tech</button>
+          <button type="button" data-feed="science" aria-pressed="false">Science</button>
+          <button type="button" data-feed="hn" aria-pressed="false">Hacker News</button>
+          <button type="button" id="news-refresh" class="spacer">Refresh</button>
+        </div>
+        <ul class="news-list" id="news-list" aria-live="polite">
+          <li class="sub">Fetching headlines from Pico W...</li>
+        </ul>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const modeButtons = document.querySelectorAll("button[data-mode]");
+    const morseForm = document.getElementById("morse-form");
+    const morseInput = document.getElementById("morse-input");
+
+    function formatUptime(sec) {
+      const h = Math.floor(sec / 3600);
+      const m = Math.floor((sec % 3600) / 60);
+      const s = sec % 60;
+      if (h > 0) return `${h}h ${m}m ${s}s`;
+      if (m > 0) return `${m}m ${s}s`;
+      return `${s}s`;
+    }
+
+    function rssiQuality(rssi) {
+      if (rssi === null || rssi === undefined) return "Unknown";
+      if (rssi >= -55) return "Excellent";
+      if (rssi >= -67) return "Good";
+      if (rssi >= -78) return "Fair";
+      return "Weak";
+    }
+
+    function renderSparkline(values) {
+      const line = document.getElementById("spark-line");
+      if (!values || values.length < 2) {
+        line.setAttribute("points", "");
+        return;
+      }
+      const min = Math.min(...values);
+      const max = Math.max(...values);
+      const span = Math.max(max - min, 0.5);
+      const w = 300;
+      const h = 72;
+      const pad = 4;
+
+      const pts = values.map((v, i) => {
+        const x = (i / (values.length - 1)) * w;
+        const y = pad + (1 - (v - min) / span) * (h - pad * 2);
+        return `${x.toFixed(1)},${y.toFixed(1)}`;
+      }).join(" ");
+
+      line.setAttribute("points", pts);
+      document.getElementById("spark-min").textContent = `Min: ${min.toFixed(1)} °C`;
+      document.getElementById("spark-max").textContent = `Max: ${max.toFixed(1)} °C`;
+    }
+
+    function updateUI(d) {
+      document.getElementById("conn-dot").className = "dot ok";
+      document.getElementById("conn-text").textContent = "Online";
+      document.getElementById("net-info").textContent = `${d.ssid} · ${d.ip}`;
+
+      document.getElementById("temp-c").textContent = `${d.temp_c.toFixed(1)} °C`;
+      document.getElementById("temp-f").textContent = `${d.temp_f.toFixed(1)} °F`;
+      renderSparkline(d.temp_history);
+
+      document.getElementById("led-dot").className = d.led_state ? "dot led-on" : "dot";
+      document.getElementById("led-label").textContent = d.led_mode.toUpperCase();
+      modeButtons.forEach((btn) => {
+        btn.setAttribute("aria-pressed", String(btn.dataset.mode === d.led_mode));
+      });
+      document.getElementById("morse-status").textContent =
+        d.led_mode === "morse" && d.morse_text ? `Flashing: "${d.morse_text}"` : "";
+
+      document.getElementById("rssi-val").textContent = d.rssi !== null ? `${d.rssi} dBm` : "--";
+      document.getElementById("rssi-qual").textContent = rssiQuality(d.rssi);
+      document.getElementById("uptime-val").textContent = formatUptime(d.uptime_s);
+      document.getElementById("ip-val").textContent = d.ip;
+      document.getElementById("cpu-info").textContent = `${d.cpu_mhz} MHz`;
+
+      const total = d.mem_alloc + d.mem_free;
+      const usedKb = (d.mem_alloc / 1024).toFixed(1);
+      const totalKb = (total / 1024).toFixed(1);
+      const pct = total > 0 ? Math.round((d.mem_alloc / total) * 100) : 0;
+      document.getElementById("ram-val").textContent = `${usedKb} / ${totalKb} KB (${pct}%)`;
+      document.getElementById("ram-bar").style.width = `${pct}%`;
+    }
+
+    async function setLed(mode, text = "") {
+      try {
+        const res = await fetch("/api/led", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ mode, text }),
+        });
+        if (res.ok) await poll();
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    modeButtons.forEach((btn) => {
+      btn.addEventListener("click", () => setLed(btn.dataset.mode));
+    });
+
+    morseForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const text = morseInput.value.trim();
+      if (!text) return;
+      setLed("morse", text);
+    });
+
+    async function poll() {
+      try {
+        const res = await fetch("/api/status", { cache: "no-store" });
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const data = await res.json();
+        updateUI(data);
+      } catch (err) {
+        document.getElementById("conn-dot").className = "dot err";
+        document.getElementById("conn-text").textContent = "Reconnecting";
+      }
+    }
+
+    poll();
+    setInterval(poll, 2000);
+
+    // News headlines
+    let activeFeed = "world";
+    const feedButtons = document.querySelectorAll("button[data-feed]");
+    const newsList = document.getElementById("news-list");
+    const newsUpdated = document.getElementById("news-updated");
+    const newsRefreshBtn = document.getElementById("news-refresh");
+
+    function renderNews(data) {
+      newsList.textContent = "";
+      if (data.error && (!data.items || data.items.length === 0)) {
+        const li = document.createElement("li");
+        li.className = "sub";
+        li.textContent = `Could not load ${data.source || "news"}: ${data.error}`;
+        newsList.appendChild(li);
+        newsUpdated.textContent = "Error";
+        return;
+      }
+
+      const items = data.items || [];
+      if (items.length === 0) {
+        const li = document.createElement("li");
+        li.className = "sub";
+        li.textContent = "No headlines available.";
+        newsList.appendChild(li);
+      } else {
+        items.forEach((item) => {
+          const li = document.createElement("li");
+          li.className = "news-item";
+
+          const a = document.createElement("a");
+          a.textContent = item.title;
+          if (item.url && /^https?:\/\//i.test(item.url)) {
+            a.href = item.url;
+            a.target = "_blank";
+            a.rel = "noopener noreferrer";
+          }
+          li.appendChild(a);
+
+          if (item.meta) {
+            const meta = document.createElement("div");
+            meta.className = "news-meta";
+            meta.textContent = item.meta;
+            li.appendChild(meta);
+          }
+
+          newsList.appendChild(li);
+        });
+      }
+
+      const ageText = data.age_s === 0 ? "just now" : `${Math.max(1, Math.round(data.age_s / 60))}m ago`;
+      newsUpdated.textContent = data.error
+        ? `${data.source} (cached · refresh failed)`
+        : `${data.source} · updated ${ageText}`;
+    }
+
+    async function loadNews(feed = activeFeed, refresh = false) {
+      activeFeed = feed;
+      feedButtons.forEach((btn) => {
+        btn.setAttribute("aria-pressed", String(btn.dataset.feed === feed));
+      });
+      newsRefreshBtn.disabled = true;
+      newsUpdated.textContent = "Fetching...";
+      try {
+        const url = `/api/news?feed=${encodeURIComponent(feed)}${refresh ? "&refresh=1" : ""}`;
+        const res = await fetch(url, { cache: "no-store" });
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        renderNews(await res.json());
+      } catch (err) {
+        newsUpdated.textContent = "Fetch failed";
+      } finally {
+        newsRefreshBtn.disabled = false;
+      }
+    }
+
+    feedButtons.forEach((btn) => {
+      btn.addEventListener("click", () => loadNews(btn.dataset.feed, false));
+    });
+    newsRefreshBtn.addEventListener("click", () => loadNews(activeFeed, true));
+
+    loadNews(activeFeed, false);
+    setInterval(() => loadNews(activeFeed, false), 10 * 60 * 1000);
+  </script>
+</body>
+</html>

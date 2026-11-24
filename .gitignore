@@ -1,0 +1,7 @@
+# Keep Wi-Fi credentials and secrets out of version control
+.env
+config.py
+
+__pycache__/
+*.pyc
+.DS_Store
