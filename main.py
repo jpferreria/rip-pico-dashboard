@@ -34,6 +34,8 @@ WEATHER_LAT = env.getenv("WEATHER_LAT", "14.5995")
 WEATHER_LON = env.getenv("WEATHER_LON", "120.9842")
 NOTES_FILE = "notes.txt"
 MAX_NOTES_BYTES = 4096
+TITLE_FILE = "title.txt"
+DEFAULT_TITLE = "Raspberry Pi Pico W"
 
 if not WIFI_SSID or not WIFI_PASSWORD:
     raise RuntimeError(
@@ -140,6 +142,27 @@ def write_notes(text):
     return clean
 
 
+def read_title():
+    try:
+        with open(TITLE_FILE, "r") as f:
+            t = f.read(60).strip()
+            return t if t else DEFAULT_TITLE
+    except OSError:
+        return DEFAULT_TITLE
+
+
+def write_title(text):
+    global dashboard_title
+    clean = str(text).strip()[:60] or DEFAULT_TITLE
+    with open(TITLE_FILE, "w") as f:
+        f.write(clean)
+    dashboard_title = clean
+    return clean
+
+
+dashboard_title = read_title()
+
+
 async def delayed_reboot():
     await asyncio.sleep_ms(300)
     machine.reset()
@@ -182,6 +205,7 @@ def get_status():
         "active_clients": active_clients,
         "unique_clients": len(client_last_seen),
         "requests_total": requests_total,
+        "dashboard_title": dashboard_title,
     }
 
 
@@ -456,6 +480,15 @@ async def handle_client(reader, writer):
                 return
             saved = write_notes(data.get("text", ""))
             await send_json(writer, {"ok": True, "length": len(saved)})
+
+        elif method == "POST" and path == "/api/title":
+            try:
+                data = json.loads(body.decode("utf-8")) if body else {}
+            except ValueError:
+                await send_json(writer, {"error": "Invalid JSON"}, "400 Bad Request")
+                return
+            saved = write_title(data.get("title", ""))
+            await send_json(writer, {"ok": True, "dashboard_title": saved})
 
         elif method == "POST" and path == "/api/reboot":
             await send_json(writer, {"ok": True, "message": "Rebooting Pico W..."})

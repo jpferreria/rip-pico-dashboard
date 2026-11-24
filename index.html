@@ -368,6 +368,38 @@
       flex-wrap: wrap;
     }
 
+    .title-row {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .title-form {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      flex-wrap: wrap;
+    }
+
+    .title-form[hidden],
+    .title-row[hidden] {
+      display: none;
+    }
+
+    .title-form input {
+      font: inherit;
+      font-size: 1.05rem;
+      font-weight: 600;
+      padding: 0.25rem 0.55rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      width: 220px;
+      max-width: 65vw;
+    }
+
     .toggle-btn {
       padding: 0.3rem 0.75rem;
       border-radius: 999px;
@@ -449,7 +481,16 @@
   <div class="wrap">
     <header>
       <div>
-        <h1>Raspberry Pi Pico W</h1>
+        <div class="title-row" id="title-row">
+          <h1 id="dash-title">Raspberry Pi Pico W</h1>
+          <button type="button" id="edit-title-btn" class="btn-sm" aria-label="Edit dashboard name">Edit</button>
+        </div>
+        <form class="title-form" id="title-form" hidden>
+          <label for="title-input" style="position:absolute;width:1px;height:1px;overflow:hidden;">Dashboard name</label>
+          <input id="title-input" type="text" maxlength="60" placeholder="Raspberry Pi Pico W" autocomplete="off">
+          <button type="submit" class="primary btn-sm">Save</button>
+          <button type="button" id="cancel-title-btn" class="btn-sm">Cancel</button>
+        </form>
         <div class="sub" id="net-info">Connecting...</div>
       </div>
       <div class="header-actions">
@@ -629,6 +670,54 @@
     const morseForm = document.getElementById("morse-form");
     const morseInput = document.getElementById("morse-input");
 
+    // Editable dashboard title (persisted on Pico W flash)
+    const dashTitleEl = document.getElementById("dash-title");
+    const titleRow = document.getElementById("title-row");
+    const titleForm = document.getElementById("title-form");
+    const titleInput = document.getElementById("title-input");
+    const editTitleBtn = document.getElementById("edit-title-btn");
+    const cancelTitleBtn = document.getElementById("cancel-title-btn");
+
+    function closeTitleEditor() {
+      titleForm.hidden = true;
+      titleRow.hidden = false;
+    }
+
+    editTitleBtn.addEventListener("click", () => {
+      titleInput.value = dashTitleEl.textContent;
+      titleRow.hidden = true;
+      titleForm.hidden = false;
+      titleInput.focus();
+      titleInput.select();
+    });
+
+    cancelTitleBtn.addEventListener("click", closeTitleEditor);
+    titleInput.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") closeTitleEditor();
+    });
+
+    titleForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const nextTitle = titleInput.value.trim() || "Raspberry Pi Pico W";
+      try {
+        const res = await fetch("/api/title", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title: nextTitle }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const saved = data.dashboard_title || nextTitle;
+          dashTitleEl.textContent = saved;
+          document.title = saved;
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        closeTitleEditor();
+      }
+    });
+
     function formatUptime(sec) {
       const h = Math.floor(sec / 3600);
       const m = Math.floor((sec % 3600) / 60);
@@ -732,6 +821,11 @@
       if (d.active_clients !== undefined) {
         document.getElementById("conn-active").textContent = `${d.active_clients} active`;
         document.getElementById("conn-meta").textContent = `${d.requests_total} reqs · ${d.unique_clients} unique`;
+      }
+
+      if (d.dashboard_title && titleForm.hidden) {
+        dashTitleEl.textContent = d.dashboard_title;
+        document.title = d.dashboard_title;
       }
     }
 
