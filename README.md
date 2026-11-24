@@ -7,9 +7,12 @@ A standalone MicroPython Wi-Fi web app for the **Raspberry Pi Pico W / Pico 2 W*
 ## Features
 - **Onboard LED Control:** Switch between `Off`, `On`, `Blink`, `Heartbeat`, or flash custom text in **Morse code**.
 - **Live Temperature Chart:** Reads the built-in temperature sensor (`ADC(4)`) every 2 seconds and renders a 60-second SVG sparkline.
-- **System Telemetry:** Live Wi-Fi signal strength (RSSI), RAM usage, uptime, IP address, and CPU frequency.
+- **System Telemetry & Controls:** Live Wi-Fi signal strength (RSSI), RAM & flash storage usage, uptime, CPU frequency, a **Hide Host/IP** privacy toggle, a **Light/Dark** theme toggle, and a two-click **Reboot** button.
+- **Local Weather:** Fetches live temperature, conditions, humidity, wind, and daily high/low from Open-Meteo (free, no API key; configurable in `.env`).
+- **LAN Scratchpad:** Persistent notepad stored on the Pico's flash (`notes.txt`) for passing quick text/links across devices on your Wi-Fi.
+- **Wi-Fi Scanner:** On-demand 2.4 GHz network scanner showing nearby SSIDs, channels, signal strength, and security.
 - **News Headlines:** Fetches live headlines directly from the Pico W for **BBC World**, **BBC Tech**, **BBC Science**, and **Hacker News** with 10-minute in-memory caching.
-- **Zero External Dependencies:** `index.html` is streamed directly from flash and adapts automatically to light/dark mode.
+- **Zero External Dependencies:** `index.html` is streamed directly from flash.
 
 ## Setup
 
@@ -38,7 +41,7 @@ PORT=80
 **Option A — Using `mpremote` (terminal):**
 ```bash
 pip install mpremote
-mpremote cp .env env.py news.py index.html main.py :
+mpremote cp .env env.py news.py weather.py index.html main.py :
 mpremote reset
 mpremote repl
 ```
@@ -57,6 +60,10 @@ mpremote repl
 
 ## API Endpoints
 - `GET /` — Serves `index.html`
-- `GET /api/status` — Returns JSON telemetry and LED state
+- `GET /api/status` — Returns JSON telemetry, flash stats, and LED state
 - `POST /api/led` — Updates LED mode, e.g. `{"mode": "morse", "text": "SOS"}`
 - `GET /api/news?feed=world&refresh=0` — Returns cached or refreshed headlines (`world`, `tech`, `science`, `hn`)
+- `GET /api/weather?refresh=0` — Returns cached or refreshed Open-Meteo weather data
+- `GET /api/wifi/scan` — Scans nearby 2.4 GHz Wi-Fi networks
+- `GET /api/notes` / `POST /api/notes` — Reads or saves the LAN scratchpad (`notes.txt`)
+- `POST /api/reboot` — Reboots the Pico W

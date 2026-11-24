@@ -11,10 +11,12 @@ import gc
 import json
 import machine
 import network
+import os
 import time
 
 import env
 import news
+import weather
 
 try:
     import asyncio
@@ -27,6 +29,11 @@ WIFI_SSID = env.getenv("WIFI_SSID")
 WIFI_PASSWORD = env.getenv("WIFI_PASSWORD")
 HOSTNAME = env.getenv("HOSTNAME", "pico-w-dashboard")
 PORT = int(env.getenv("PORT", "80"))
+WEATHER_CITY = env.getenv("WEATHER_CITY", "Manila")
+WEATHER_LAT = env.getenv("WEATHER_LAT", "14.5995")
+WEATHER_LON = env.getenv("WEATHER_LON", "120.9842")
+NOTES_FILE = "notes.txt"
+MAX_NOTES_BYTES = 4096
 
 if not WIFI_SSID or not WIFI_PASSWORD:
     raise RuntimeError(
@@ -85,11 +92,62 @@ def read_temperature_c(samples=10):
     return round(27.0 - (voltage - 0.706) / 0.001721, 2)
 
 
+def get_flash_stats():
+    try:
+        st = os.statvfs("/")
+        bsize = st[0]
+        total = bsize * st[2]
+        free = bsize * st[3]
+        return total, free, total - free
+    except Exception:
+        return 0, 0, 0
+
+
+def scan_wifi(limit=12):
+    """Scan nearby 2.4 GHz Wi-Fi networks, deduplicated by SSID and sorted by RSSI."""
+    sec_map = {0: "Open", 1: "WEP", 2: "WPA", 3: "WPA2", 4: "WPA/WPA2", 5: "WPA2/WPA3"}
+    best = {}
+    try:
+        for entry in wlan.scan():
+            ssid = entry[0].decode("utf-8", "ignore").strip() or "(hidden)"
+            channel = entry[2]
+            rssi = entry[3]
+            sec = sec_map.get(entry[4], "Secured")
+            if ssid not in best or rssi > best[ssid]["rssi"]:
+                best[ssid] = {"ssid": ssid, "channel": channel, "rssi": rssi, "security": sec}
+    except Exception as exc:
+        return {"networks": [], "error": str(exc)}
+
+    networks = sorted(best.values(), key=lambda x: x["rssi"], reverse=True)[:limit]
+    return {"networks": networks, "error": None}
+
+
+def read_notes():
+    try:
+        with open(NOTES_FILE, "r") as f:
+            return f.read(MAX_NOTES_BYTES)
+    except OSError:
+        return ""
+
+
+def write_notes(text):
+    clean = str(text)[:MAX_NOTES_BYTES]
+    with open(NOTES_FILE, "w") as f:
+        f.write(clean)
+    return clean
+
+
+async def delayed_reboot():
+    await asyncio.sleep_ms(300)
+    machine.reset()
+
+
 def get_status():
     """Collect current telemetry snapshot."""
     gc.collect()
     temp_c = latest_temp_c if temp_history else read_temperature_c()
     temp_f = round(temp_c * 9.0 / 5.0 + 32.0, 2)
+    flash_total, flash_free, flash_used = get_flash_stats()
 
     try:
         rssi = wlan.status("rssi")
@@ -106,6 +164,9 @@ def get_status():
         "uptime_s": time.ticks_diff(time.ticks_ms(), START_MS) // 1000,
         "mem_free": gc.mem_free(),
         "mem_alloc": gc.mem_alloc(),
+        "flash_total": flash_total,
+        "flash_free": flash_free,
+        "flash_used": flash_used,
         "rssi": rssi,
         "ip": wlan.ifconfig()[0] if wlan.isconnected() else "0.0.0.0",
         "ssid": WIFI_SSID,
@@ -338,7 +399,7 @@ async def handle_client(reader, writer):
 
         body = b""
         if content_length > 0:
-            body = await asyncio.wait_for(reader.readexactly(min(content_length, 1024)), 5)
+            body = await asyncio.wait_for(reader.readexactly(min(content_length, 4608)), 5)
 
         if method == "GET" and path in ("/", "/index.html"):
             await send_file(writer, "index.html")
@@ -350,6 +411,32 @@ async def handle_client(reader, writer):
             feed = query.get("feed", "world").lower()
             refresh = query.get("refresh", "0") in ("1", "true", "yes")
             await send_json(writer, news.get_headlines(feed_id=feed, force=refresh))
+
+        elif method == "GET" and path == "/api/weather":
+            refresh = query.get("refresh", "0") in ("1", "true", "yes")
+            await send_json(
+                writer,
+                weather.get_weather(WEATHER_LAT, WEATHER_LON, WEATHER_CITY, force=refresh),
+            )
+
+        elif method == "GET" and path == "/api/wifi/scan":
+            await send_json(writer, scan_wifi())
+
+        elif method == "GET" and path == "/api/notes":
+            await send_json(writer, {"text": read_notes(), "max_len": MAX_NOTES_BYTES})
+
+        elif method == "POST" and path == "/api/notes":
+            try:
+                data = json.loads(body.decode("utf-8")) if body else {}
+            except ValueError:
+                await send_json(writer, {"error": "Invalid JSON"}, "400 Bad Request")
+                return
+            saved = write_notes(data.get("text", ""))
+            await send_json(writer, {"ok": True, "length": len(saved)})
+
+        elif method == "POST" and path == "/api/reboot":
+            await send_json(writer, {"ok": True, "message": "Rebooting Pico W..."})
+            asyncio.create_task(delayed_reboot())
 
         elif method == "POST" and path == "/api/led":
             try:

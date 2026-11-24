@@ -4,6 +4,14 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="color-scheme" content="light dark">
+  <script>
+    try {
+      const s = localStorage.getItem("color-scheme");
+      if (s === "light" || s === "dark") {
+        document.querySelector('meta[name="color-scheme"]').content = s;
+      }
+    } catch (e) {}
+  </script>
   <title>Pico W Dashboard</title>
   <style>
     :root {
@@ -70,6 +78,34 @@
         --warn: light-dark(var(--warn-light), var(--warn-dark));
         --err: light-dark(var(--err-light), var(--err-dark));
       }
+    }
+
+    :root:has(> head > meta[name="color-scheme"][content="dark"]) {
+      color-scheme: dark;
+      --bg: var(--bg-dark);
+      --surface: var(--surface-dark);
+      --border: var(--border-dark);
+      --text: var(--text-dark);
+      --muted: var(--muted-dark);
+      --accent: var(--accent-dark);
+      --accent-fg: var(--accent-fg-dark);
+      --ok: var(--ok-dark);
+      --warn: var(--warn-dark);
+      --err: var(--err-dark);
+    }
+
+    :root:has(> head > meta[name="color-scheme"][content="light"]) {
+      color-scheme: light;
+      --bg: var(--bg-light);
+      --surface: var(--surface-light);
+      --border: var(--border-light);
+      --text: var(--text-light);
+      --muted: var(--muted-light);
+      --accent: var(--accent-light);
+      --accent-fg: var(--accent-fg-light);
+      --ok: var(--ok-light);
+      --warn: var(--warn-light);
+      --err: var(--err-light);
     }
 
     * { box-sizing: border-box; }
@@ -337,6 +373,76 @@
       border-radius: 999px;
       font-size: 0.82rem;
     }
+
+    .btn-sm {
+      padding: 0.3rem 0.65rem;
+      font-size: 0.8rem;
+    }
+
+    button.danger {
+      border-color: var(--err);
+      color: var(--err);
+    }
+
+    button.danger.armed {
+      background: var(--err);
+      color: #ffffff;
+    }
+
+    .weather-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.65rem;
+      margin-top: 0.85rem;
+    }
+
+    .notes-area {
+      width: 100%;
+      min-height: 118px;
+      resize: vertical;
+      font: inherit;
+      font-size: 0.92rem;
+      padding: 0.65rem 0.75rem;
+      border-radius: 9px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    .notes-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-top: 0.6rem;
+      flex-wrap: wrap;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.88rem;
+    }
+
+    th, td {
+      text-align: left;
+      padding: 0.48rem 0.5rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    th {
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
   </style>
 </head>
 <body>
@@ -347,6 +453,7 @@
         <div class="sub" id="net-info">Connecting...</div>
       </div>
       <div class="header-actions">
+        <button type="button" id="theme-toggle" class="toggle-btn">Theme</button>
         <button type="button" id="privacy-toggle" class="toggle-btn" aria-pressed="false">Hide Host/IP</button>
         <time class="badge" id="today-date"></time>
         <div class="badge" aria-live="polite">
@@ -402,7 +509,10 @@
       <section class="card full">
         <div class="card-head">
           <h2>System Telemetry</h2>
-          <span class="sub" id="cpu-info">-- MHz</span>
+          <div class="header-actions">
+            <span class="sub" id="cpu-info">-- MHz</span>
+            <button type="button" id="reboot-btn" class="btn-sm danger">Reboot</button>
+          </div>
         </div>
         <div class="stats">
           <div>
@@ -420,6 +530,73 @@
             <div class="stat-val" id="ram-val">-- KB</div>
             <div class="bar"><div class="bar-fill" id="ram-bar"></div></div>
           </div>
+          <div>
+            <div class="stat-label">Flash Storage</div>
+            <div class="stat-val" id="flash-val">-- KB</div>
+            <div class="bar"><div class="bar-fill" id="flash-bar"></div></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-head">
+          <h2 id="weather-title">Local Weather</h2>
+          <button type="button" id="weather-refresh" class="btn-sm">Refresh</button>
+        </div>
+        <div class="big-num" id="weather-temp">--.- &deg;C</div>
+        <div class="sub" id="weather-cond">Loading...</div>
+        <div class="weather-grid">
+          <div>
+            <div class="stat-label">Feels Like</div>
+            <div class="stat-val" id="weather-feels">-- &deg;C</div>
+          </div>
+          <div>
+            <div class="stat-label">High / Low</div>
+            <div class="stat-val" id="weather-hl">-- / --</div>
+          </div>
+          <div>
+            <div class="stat-label">Humidity</div>
+            <div class="stat-val" id="weather-hum">--%</div>
+          </div>
+          <div>
+            <div class="stat-label">Wind</div>
+            <div class="stat-val" id="weather-wind">-- km/h</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-head">
+          <h2>LAN Scratchpad</h2>
+          <span class="sub" id="notes-status">Saved on flash</span>
+        </div>
+        <label for="notes-area" style="position:absolute;width:1px;height:1px;overflow:hidden;">LAN Scratchpad</label>
+        <textarea id="notes-area" class="notes-area" maxlength="4096" placeholder="Drop quick notes or links here to share across your Wi-Fi..."></textarea>
+        <div class="notes-actions">
+          <button type="button" id="notes-save" class="primary btn-sm">Save</button>
+          <button type="button" id="notes-copy" class="btn-sm">Copy</button>
+          <span class="sub" id="notes-count" style="margin-left:auto;">0 / 4096</span>
+        </div>
+      </section>
+
+      <section class="card full">
+        <div class="card-head">
+          <h2>Wi-Fi Scanner</h2>
+          <button type="button" id="wifi-scan-btn" class="btn-sm">Scan Nearby</button>
+        </div>
+        <div class="table-wrap">
+          <div class="sub" id="wifi-scan-status">Click "Scan Nearby" to discover 2.4 GHz networks around your Pico W.</div>
+          <table id="wifi-table" hidden>
+            <thead>
+              <tr>
+                <th>SSID</th>
+                <th>Channel</th>
+                <th>Signal</th>
+                <th>Security</th>
+              </tr>
+            </thead>
+            <tbody id="wifi-tbody"></tbody>
+          </table>
         </div>
       </section>
 
@@ -538,6 +715,14 @@
       const pct = total > 0 ? Math.round((d.mem_alloc / total) * 100) : 0;
       document.getElementById("ram-val").textContent = `${usedKb} / ${totalKb} KB (${pct}%)`;
       document.getElementById("ram-bar").style.width = `${pct}%`;
+
+      if (d.flash_total > 0) {
+        const fUsedKb = (d.flash_used / 1024).toFixed(0);
+        const fTotalKb = (d.flash_total / 1024).toFixed(0);
+        const fPct = Math.round((d.flash_used / d.flash_total) * 100);
+        document.getElementById("flash-val").textContent = `${fUsedKb} / ${fTotalKb} KB (${fPct}%)`;
+        document.getElementById("flash-bar").style.width = `${fPct}%`;
+      }
     }
 
     async function setLed(mode, text = "") {
@@ -680,6 +865,205 @@
 
     loadNews(activeFeed, false);
     setInterval(() => loadNews(activeFeed, false), 10 * 60 * 1000);
+
+    // Two-state color-scheme toggle (follows system by default, removes override on revert)
+    const themeMeta = document.querySelector('meta[name="color-scheme"]');
+    const themeToggle = document.getElementById("theme-toggle");
+    const darkMedia = window.matchMedia("(prefers-color-scheme: dark)");
+
+    function getSystemScheme() {
+      return darkMedia.matches ? "dark" : "light";
+    }
+
+    function getStoredScheme() {
+      try {
+        const v = localStorage.getItem("color-scheme");
+        return v === "light" || v === "dark" ? v : null;
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function syncThemeUI() {
+      const stored = getStoredScheme();
+      themeMeta.content = stored || "light dark";
+      const effective = stored || getSystemScheme();
+      themeToggle.textContent = effective === "dark" ? "Light Mode" : "Dark Mode";
+      themeToggle.setAttribute("aria-pressed", String(stored !== null));
+    }
+
+    themeToggle.addEventListener("click", () => {
+      const stored = getStoredScheme();
+      const effective = stored || getSystemScheme();
+      const target = effective === "dark" ? "light" : "dark";
+      try {
+        if (target === getSystemScheme()) {
+          localStorage.removeItem("color-scheme");
+        } else {
+          localStorage.setItem("color-scheme", target);
+        }
+      } catch (e) {}
+      syncThemeUI();
+    });
+
+    darkMedia.addEventListener("change", syncThemeUI);
+    window.addEventListener("storage", (e) => {
+      if (e.key === "color-scheme") syncThemeUI();
+    });
+    syncThemeUI();
+
+    // Reboot button (two-click confirm)
+    const rebootBtn = document.getElementById("reboot-btn");
+    let rebootTimer = null;
+    rebootBtn.addEventListener("click", async () => {
+      if (!rebootBtn.classList.contains("armed")) {
+        rebootBtn.classList.add("armed");
+        rebootBtn.textContent = "Confirm Reboot?";
+        rebootTimer = setTimeout(() => {
+          rebootBtn.classList.remove("armed");
+          rebootBtn.textContent = "Reboot";
+        }, 4000);
+        return;
+      }
+      clearTimeout(rebootTimer);
+      rebootBtn.disabled = true;
+      rebootBtn.textContent = "Rebooting...";
+      try {
+        await fetch("/api/reboot", { method: "POST" });
+      } catch (e) {}
+      setTimeout(() => {
+        rebootBtn.classList.remove("armed");
+        rebootBtn.disabled = false;
+        rebootBtn.textContent = "Reboot";
+      }, 6000);
+    });
+
+    // Local Weather
+    const weatherRefreshBtn = document.getElementById("weather-refresh");
+    async function loadWeather(refresh = false) {
+      weatherRefreshBtn.disabled = true;
+      try {
+        const res = await fetch(`/api/weather${refresh ? "?refresh=1" : ""}`, { cache: "no-store" });
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const w = await res.json();
+        document.getElementById("weather-title").textContent = w.city ? `Weather · ${w.city}` : "Local Weather";
+        if (w.error && w.temp_c === undefined) {
+          document.getElementById("weather-cond").textContent = `Unavailable: ${w.error}`;
+          return;
+        }
+        document.getElementById("weather-temp").textContent = `${Number(w.temp_c).toFixed(1)} °C`;
+        document.getElementById("weather-cond").textContent = w.condition || "--";
+        document.getElementById("weather-feels").textContent = w.feels_c != null ? `${Number(w.feels_c).toFixed(1)} °C` : "--";
+        document.getElementById("weather-hl").textContent =
+          w.high_c != null && w.low_c != null ? `${Math.round(w.high_c)}° / ${Math.round(w.low_c)}°` : "--";
+        document.getElementById("weather-hum").textContent = w.humidity != null ? `${w.humidity}%` : "--";
+        document.getElementById("weather-wind").textContent = w.wind_kmh != null ? `${w.wind_kmh} km/h` : "--";
+      } catch (err) {
+        document.getElementById("weather-cond").textContent = "Weather fetch failed";
+      } finally {
+        weatherRefreshBtn.disabled = false;
+      }
+    }
+    weatherRefreshBtn.addEventListener("click", () => loadWeather(true));
+    loadWeather(false);
+    setInterval(() => loadWeather(false), 15 * 60 * 1000);
+
+    // LAN Scratchpad
+    const notesArea = document.getElementById("notes-area");
+    const notesSaveBtn = document.getElementById("notes-save");
+    const notesCopyBtn = document.getElementById("notes-copy");
+    const notesStatus = document.getElementById("notes-status");
+    const notesCount = document.getElementById("notes-count");
+
+    function updateNotesCount() {
+      notesCount.textContent = `${notesArea.value.length} / 4096`;
+    }
+
+    notesArea.addEventListener("input", () => {
+      updateNotesCount();
+      notesStatus.textContent = "Unsaved changes";
+    });
+
+    async function loadNotes() {
+      try {
+        const res = await fetch("/api/notes", { cache: "no-store" });
+        if (!res.ok) return;
+        const data = await res.json();
+        notesArea.value = data.text || "";
+        updateNotesCount();
+        notesStatus.textContent = "Loaded from flash";
+      } catch (e) {}
+    }
+
+    notesSaveBtn.addEventListener("click", async () => {
+      notesSaveBtn.disabled = true;
+      notesStatus.textContent = "Saving...";
+      try {
+        const res = await fetch("/api/notes", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: notesArea.value }),
+        });
+        notesStatus.textContent = res.ok ? "Saved to flash" : "Save failed";
+      } catch (e) {
+        notesStatus.textContent = "Save failed";
+      } finally {
+        notesSaveBtn.disabled = false;
+      }
+    });
+
+    notesCopyBtn.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(notesArea.value);
+        notesStatus.textContent = "Copied!";
+      } catch (e) {
+        notesArea.select();
+        notesStatus.textContent = "Selected text";
+      }
+    });
+    loadNotes();
+
+    // Wi-Fi Scanner
+    const wifiScanBtn = document.getElementById("wifi-scan-btn");
+    const wifiScanStatus = document.getElementById("wifi-scan-status");
+    const wifiTable = document.getElementById("wifi-table");
+    const wifiTbody = document.getElementById("wifi-tbody");
+
+    wifiScanBtn.addEventListener("click", async () => {
+      wifiScanBtn.disabled = true;
+      wifiScanStatus.textContent = "Scanning 2.4 GHz networks...";
+      try {
+        const res = await fetch("/api/wifi/scan", { cache: "no-store" });
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const data = await res.json();
+        const nets = data.networks || [];
+        wifiTbody.textContent = "";
+        if (nets.length === 0) {
+          wifiTable.hidden = true;
+          wifiScanStatus.textContent = data.error ? `Scan failed: ${data.error}` : "No networks found.";
+          return;
+        }
+        nets.forEach((n) => {
+          const tr = document.createElement("tr");
+          const tdSsid = document.createElement("td");
+          tdSsid.textContent = n.ssid;
+          const tdCh = document.createElement("td");
+          tdCh.textContent = String(n.channel);
+          const tdRssi = document.createElement("td");
+          tdRssi.textContent = `${n.rssi} dBm (${rssiQuality(n.rssi)})`;
+          const tdSec = document.createElement("td");
+          tdSec.textContent = n.security;
+          tr.append(tdSsid, tdCh, tdRssi, tdSec);
+          wifiTbody.appendChild(tr);
+        });
+        wifiTable.hidden = false;
+        wifiScanStatus.textContent = `Found ${nets.length} nearby networks.`;
+      } catch (err) {
+        wifiScanStatus.textContent = "Scan failed.";
+      } finally {
+        wifiScanBtn.disabled = false;
+      }
+    });
   </script>
 </body>
 </html>
