@@ -50,6 +50,9 @@ START_MS = time.ticks_ms()
 MAX_HISTORY = 30
 temp_history = []
 latest_temp_c = 0.0
+requests_total = 0
+client_last_seen = {}  # peer_ip -> ticks_ms
+ACTIVE_CLIENT_WINDOW_MS = 30_000
 
 led_mode = "off"       # "off" | "on" | "blink" | "heartbeat" | "morse"
 led_state = False
@@ -154,6 +157,11 @@ def get_status():
     except Exception:
         rssi = None
 
+    now = time.ticks_ms()
+    active_clients = sum(
+        1 for ts in client_last_seen.values() if time.ticks_diff(now, ts) <= ACTIVE_CLIENT_WINDOW_MS
+    )
+
     return {
         "temp_c": temp_c,
         "temp_f": temp_f,
@@ -161,7 +169,7 @@ def get_status():
         "led_mode": led_mode,
         "led_state": led_state,
         "morse_text": morse_text,
-        "uptime_s": time.ticks_diff(time.ticks_ms(), START_MS) // 1000,
+        "uptime_s": time.ticks_diff(now, START_MS) // 1000,
         "mem_free": gc.mem_free(),
         "mem_alloc": gc.mem_alloc(),
         "flash_total": flash_total,
@@ -171,6 +179,9 @@ def get_status():
         "ip": wlan.ifconfig()[0] if wlan.isconnected() else "0.0.0.0",
         "ssid": WIFI_SSID,
         "cpu_mhz": machine.freq() // 1_000_000,
+        "active_clients": active_clients,
+        "unique_clients": len(client_last_seen),
+        "requests_total": requests_total,
     }
 
 
@@ -369,7 +380,19 @@ def parse_query(qs):
 
 async def handle_client(reader, writer):
     """Handle an incoming HTTP request."""
+    global requests_total
     try:
+        requests_total += 1
+        try:
+            peer = writer.get_extra_info("peername")
+            peer_ip = peer[0] if peer else "unknown"
+        except Exception:
+            peer_ip = "unknown"
+        if len(client_last_seen) >= 32 and peer_ip not in client_last_seen:
+            oldest = min(client_last_seen, key=lambda k: client_last_seen[k])
+            del client_last_seen[oldest]
+        client_last_seen[peer_ip] = time.ticks_ms()
+
         request_line = await asyncio.wait_for(reader.readline(), 5)
         if not request_line:
             return

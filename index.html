@@ -535,6 +535,11 @@
             <div class="stat-val" id="flash-val">-- KB</div>
             <div class="bar"><div class="bar-fill" id="flash-bar"></div></div>
           </div>
+          <div>
+            <div class="stat-label">Connections</div>
+            <div class="stat-val" id="conn-active">-- active</div>
+            <div class="sub" id="conn-meta">-- reqs · -- unique</div>
+          </div>
         </div>
       </section>
 
@@ -722,6 +727,11 @@
         const fPct = Math.round((d.flash_used / d.flash_total) * 100);
         document.getElementById("flash-val").textContent = `${fUsedKb} / ${fTotalKb} KB (${fPct}%)`;
         document.getElementById("flash-bar").style.width = `${fPct}%`;
+      }
+
+      if (d.active_clients !== undefined) {
+        document.getElementById("conn-active").textContent = `${d.active_clients} active`;
+        document.getElementById("conn-meta").textContent = `${d.requests_total} reqs · ${d.unique_clients} unique`;
       }
     }
 
