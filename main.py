@@ -27,7 +27,10 @@ env.load_env(".env")
 
 WIFI_SSID = env.getenv("WIFI_SSID")
 WIFI_PASSWORD = env.getenv("WIFI_PASSWORD")
-HOSTNAME = env.getenv("HOSTNAME", "pico-w-dashboard")
+HOSTNAME = env.getenv("HOSTNAME", "rpi-pico")
+MDNS_HOST = HOSTNAME.strip().lower().rstrip(".")
+if not MDNS_HOST.endswith(".local"):
+    MDNS_HOST += ".local"
 PORT = int(env.getenv("PORT", "80"))
 WEATHER_CITY = env.getenv("WEATHER_CITY", "Manila")
 WEATHER_LAT = env.getenv("WEATHER_LAT", "14.5995")
@@ -222,6 +225,7 @@ def get_status():
         "rssi": rssi,
         "ip": wlan.ifconfig()[0] if wlan.isconnected() else "0.0.0.0",
         "ssid": WIFI_SSID,
+        "mdns_host": MDNS_HOST,
         "cpu_mhz": machine.freq() // 1_000_000,
         "active_clients": active_clients,
         "unique_clients": len(client_last_seen),
@@ -232,12 +236,23 @@ def get_status():
 
 
 def connect_wifi(timeout_s=20):
-    """Connect to 2.4 GHz Wi-Fi with onboard LED visual feedback."""
-    wlan.active(True)
+    """Connect to 2.4 GHz Wi-Fi with mDNS hostname registration and LED feedback."""
+    # Set hostname BEFORE activating WLAN so lwIP's built-in mDNS advertises `<HOSTNAME>.local`
     try:
-        network.hostname(HOSTNAME)
-    except AttributeError:
-        pass
+        current_host = network.hostname()
+    except Exception:
+        current_host = None
+
+    if current_host != HOSTNAME:
+        if wlan.active():
+            wlan.active(False)
+            time.sleep_ms(100)
+        try:
+            network.hostname(HOSTNAME)
+        except AttributeError:
+            pass
+
+    wlan.active(True)
 
     if not wlan.isconnected():
         print("Connecting to Wi-Fi:", WIFI_SSID)
@@ -264,7 +279,7 @@ def connect_wifi(timeout_s=20):
         time.sleep_ms(120)
 
     ip = wlan.ifconfig()[0]
-    print("Connected! Open http://{}/ in your browser.".format(ip))
+    print("Connected! Open http://{}/ or http://{}/".format(MDNS_HOST, ip))
     return ip
 
 

@@ -898,7 +898,7 @@
       if (!lastStatus) return;
       document.getElementById("net-info").textContent = hideNetInfo
         ? "Host & IP hidden"
-        : `${lastStatus.ssid} · ${lastStatus.ip}`;
+        : `${lastStatus.mdns_host || lastStatus.ssid} · ${lastStatus.ip}`;
       document.getElementById("ip-val").textContent = hideNetInfo ? "Hidden" : lastStatus.ip;
     }
 

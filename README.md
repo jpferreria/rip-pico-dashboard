@@ -35,7 +35,7 @@ Edit `.env`:
 ```dotenv
 WIFI_SSID=your-2.4ghz-ssid
 WIFI_PASSWORD=your-wifi-password
-HOSTNAME=pico-w-dashboard
+HOSTNAME=rpi-pico
 PORT=80
 
 # Optional weather location (defaults to Manila)
@@ -60,11 +60,11 @@ mpremote repl
 3. Click **Run** (or press the reset/replug USB).
 
 ### 4. Open the Dashboard
-- While connecting, the onboard LED blinks rapidly; once connected, it double-blinks and prints the URL in the serial console:
+- While connecting, the onboard LED blinks rapidly; once connected, it double-blinks and prints the URLs in the serial console:
   ```text
-  Connected! Open http://192.168.x.x/ in your browser.
+  Connected! Open http://rpi-pico.local/ or http://192.168.x.x/
   ```
-- Open that URL from any phone or computer on the same Wi-Fi network.
+- Open **http://rpi-pico.local/** (or the printed IP address) from any phone or computer on the same Wi-Fi network. You can customize the `.local` name by changing `HOSTNAME` in `.env`.
 
 ## Project Structure
 - `main.py` — Async HTTP server, Wi-Fi auto-reconnect, LED/Morse controller, telemetry, Wi-Fi scanner, and flash notes API
