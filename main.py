@@ -192,7 +192,7 @@ async def delayed_reboot():
     machine.reset()
 
 
-def get_status():
+def get_status(client_ip=""):
     """Collect current telemetry snapshot."""
     gc.collect()
     temp_c = latest_temp_c if temp_history else read_temperature_c()
@@ -224,6 +224,7 @@ def get_status():
         "flash_used": flash_used,
         "rssi": rssi,
         "ip": wlan.ifconfig()[0] if wlan.isconnected() else "0.0.0.0",
+        "client_ip": client_ip,
         "ssid": WIFI_SSID,
         "mdns_host": MDNS_HOST,
         "cpu_mhz": machine.freq() // 1_000_000,
@@ -489,7 +490,7 @@ async def handle_client(reader, writer):
             await send_file(writer, "index.html")
 
         elif method == "GET" and path == "/api/status":
-            await send_json(writer, get_status())
+            await send_json(writer, get_status(client_ip=peer_ip))
 
         elif method == "GET" and path == "/api/news":
             feed = query.get("feed", "world").lower()

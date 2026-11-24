@@ -699,6 +699,14 @@
             <div class="stat-val" id="conn-active">-- active</div>
             <div class="sub" id="conn-meta">-- reqs · -- unique</div>
           </div>
+          <div>
+            <div class="clock-head">
+              <span class="stat-label">Client IP</span>
+              <button type="button" id="client-ip-toggle" class="btn-sm" aria-pressed="false" style="padding:0.12rem 0.45rem;font-size:0.72rem;">Hide</button>
+            </div>
+            <div class="stat-val" id="client-ip-val">--</div>
+            <div class="sub">This device</div>
+          </div>
         </div>
       </section>
 
@@ -890,11 +898,24 @@
 
     let lastStatus = null;
     let hideNetInfo = localStorage.getItem("pico_hide_net_info") === "1";
+    let hideClientIp = localStorage.getItem("pico_hide_client_ip") === "1";
     const privacyToggle = document.getElementById("privacy-toggle");
+    const clientIpToggle = document.getElementById("client-ip-toggle");
+
+    function renderClientIp() {
+      const masked = hideClientIp || hideNetInfo;
+      clientIpToggle.setAttribute("aria-pressed", String(hideClientIp));
+      clientIpToggle.textContent = hideClientIp ? "Show" : "Hide";
+      if (!lastStatus) return;
+      document.getElementById("client-ip-val").textContent = masked
+        ? "Hidden"
+        : (lastStatus.client_ip || "--");
+    }
 
     function renderNetInfo() {
       privacyToggle.setAttribute("aria-pressed", String(hideNetInfo));
       privacyToggle.textContent = hideNetInfo ? "Show Host/IP" : "Hide Host/IP";
+      renderClientIp();
       if (!lastStatus) return;
       document.getElementById("net-info").textContent = hideNetInfo
         ? "Host & IP hidden"
@@ -906,6 +927,11 @@
       hideNetInfo = !hideNetInfo;
       localStorage.setItem("pico_hide_net_info", hideNetInfo ? "1" : "0");
       renderNetInfo();
+    });
+    clientIpToggle.addEventListener("click", () => {
+      hideClientIp = !hideClientIp;
+      localStorage.setItem("pico_hide_client_ip", hideClientIp ? "1" : "0");
+      renderClientIp();
     });
     renderNetInfo();
 
