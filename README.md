@@ -1,11 +1,14 @@
 # Raspberry Pi Pico W — Web Control & Telemetry Dashboard
 
-A standalone MicroPython Wi-Fi web app for the **Raspberry Pi Pico W** requiring **no additional hardware**.
+A standalone MicroPython Wi-Fi web app for the **Raspberry Pi Pico W / Pico 2 W** requiring **no additional hardware**.
+
+![Pico W Dashboard Screenshot](docs/dashboard-screenshot.jpg)
 
 ## Features
 - **Onboard LED Control:** Switch between `Off`, `On`, `Blink`, `Heartbeat`, or flash custom text in **Morse code**.
-- **Live Temperature Chart:** Reads the RP2040's built-in temperature sensor (`ADC(4)`) every 2 seconds and renders a 60-second SVG sparkline.
+- **Live Temperature Chart:** Reads the built-in temperature sensor (`ADC(4)`) every 2 seconds and renders a 60-second SVG sparkline.
 - **System Telemetry:** Live Wi-Fi signal strength (RSSI), RAM usage, uptime, IP address, and CPU frequency.
+- **News Headlines:** Fetches live headlines directly from the Pico W for **BBC World**, **BBC Tech**, **BBC Science**, and **Hacker News** with 10-minute in-memory caching.
 - **Zero External Dependencies:** `index.html` is streamed directly from flash and adapts automatically to light/dark mode.
 
 ## Setup
@@ -56,3 +59,4 @@ mpremote repl
 - `GET /` — Serves `index.html`
 - `GET /api/status` — Returns JSON telemetry and LED state
 - `POST /api/led` — Updates LED mode, e.g. `{"mode": "morse", "text": "SOS"}`
+- `GET /api/news?feed=world&refresh=0` — Returns cached or refreshed headlines (`world`, `tech`, `science`, `hn`)
