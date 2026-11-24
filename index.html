@@ -348,6 +348,7 @@
       </div>
       <div class="header-actions">
         <button type="button" id="privacy-toggle" class="toggle-btn" aria-pressed="false">Hide Host/IP</button>
+        <time class="badge" id="today-date"></time>
         <div class="badge" aria-live="polite">
           <span class="dot" id="conn-dot"></span>
           <span id="conn-text">Loading</span>
@@ -574,6 +575,26 @@
         document.getElementById("conn-text").textContent = "Reconnecting";
       }
     }
+
+    const dateEl = document.getElementById("today-date");
+    const dateFmt = new Intl.DateTimeFormat(undefined, {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+
+    function updateDate() {
+      const now = new Date();
+      dateEl.textContent = dateFmt.format(now);
+      const y = now.getFullYear();
+      const m = String(now.getMonth() + 1).padStart(2, "0");
+      const d = String(now.getDate()).padStart(2, "0");
+      dateEl.setAttribute("datetime", `${y}-${m}-${d}`);
+    }
+
+    updateDate();
+    setInterval(updateDate, 60 * 1000);
 
     poll();
     setInterval(poll, 2000);
