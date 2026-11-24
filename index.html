@@ -324,6 +324,19 @@
       color: var(--muted);
       margin-top: 0.15rem;
     }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .toggle-btn {
+      padding: 0.3rem 0.75rem;
+      border-radius: 999px;
+      font-size: 0.82rem;
+    }
   </style>
 </head>
 <body>
@@ -333,9 +346,12 @@
         <h1>Raspberry Pi Pico W</h1>
         <div class="sub" id="net-info">Connecting...</div>
       </div>
-      <div class="badge" aria-live="polite">
-        <span class="dot" id="conn-dot"></span>
-        <span id="conn-text">Loading</span>
+      <div class="header-actions">
+        <button type="button" id="privacy-toggle" class="toggle-btn" aria-pressed="false">Hide Host/IP</button>
+        <div class="badge" aria-live="polite">
+          <span class="dot" id="conn-dot"></span>
+          <span id="conn-text">Loading</span>
+        </div>
       </div>
     </header>
 
@@ -471,10 +487,32 @@
       document.getElementById("spark-max").textContent = `Max: ${max.toFixed(1)} °C`;
     }
 
+    let lastStatus = null;
+    let hideNetInfo = localStorage.getItem("pico_hide_net_info") === "1";
+    const privacyToggle = document.getElementById("privacy-toggle");
+
+    function renderNetInfo() {
+      privacyToggle.setAttribute("aria-pressed", String(hideNetInfo));
+      privacyToggle.textContent = hideNetInfo ? "Show Host/IP" : "Hide Host/IP";
+      if (!lastStatus) return;
+      document.getElementById("net-info").textContent = hideNetInfo
+        ? "Host & IP hidden"
+        : `${lastStatus.ssid} · ${lastStatus.ip}`;
+      document.getElementById("ip-val").textContent = hideNetInfo ? "Hidden" : lastStatus.ip;
+    }
+
+    privacyToggle.addEventListener("click", () => {
+      hideNetInfo = !hideNetInfo;
+      localStorage.setItem("pico_hide_net_info", hideNetInfo ? "1" : "0");
+      renderNetInfo();
+    });
+    renderNetInfo();
+
     function updateUI(d) {
+      lastStatus = d;
       document.getElementById("conn-dot").className = "dot ok";
       document.getElementById("conn-text").textContent = "Online";
-      document.getElementById("net-info").textContent = `${d.ssid} · ${d.ip}`;
+      renderNetInfo();
 
       document.getElementById("temp-c").textContent = `${d.temp_c.toFixed(1)} °C`;
       document.getElementById("temp-f").textContent = `${d.temp_f.toFixed(1)} °F`;
@@ -491,7 +529,6 @@
       document.getElementById("rssi-val").textContent = d.rssi !== null ? `${d.rssi} dBm` : "--";
       document.getElementById("rssi-qual").textContent = rssiQuality(d.rssi);
       document.getElementById("uptime-val").textContent = formatUptime(d.uptime_s);
-      document.getElementById("ip-val").textContent = d.ip;
       document.getElementById("cpu-info").textContent = `${d.cpu_mhz} MHz`;
 
       const total = d.mem_alloc + d.mem_free;
