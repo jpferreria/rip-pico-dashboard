@@ -463,8 +463,26 @@ async def handle_client(reader, writer):
             refresh = query.get("refresh", "0") in ("1", "true", "yes")
             await send_json(
                 writer,
-                weather.get_weather(WEATHER_LAT, WEATHER_LON, WEATHER_CITY, force=refresh),
+                weather.get_weather(WEATHER_CITY, WEATHER_LAT, WEATHER_LON, force=refresh),
             )
+
+        elif method == "POST" and path == "/api/weather/location":
+            try:
+                data = json.loads(body.decode("utf-8")) if body else {}
+            except ValueError:
+                await send_json(writer, {"error": "Invalid JSON"}, "400 Bad Request")
+                return
+            try:
+                result = weather.set_location(
+                    city=data.get("city", ""),
+                    auto=bool(data.get("auto", False)),
+                    fallback_city=WEATHER_CITY,
+                    fallback_lat=WEATHER_LAT,
+                    fallback_lon=WEATHER_LON,
+                )
+                await send_json(writer, result)
+            except Exception as exc:
+                await send_json(writer, {"error": str(exc)}, "400 Bad Request")
 
         elif method == "GET" and path == "/api/wifi/scan":
             await send_json(writer, scan_wifi())

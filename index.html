@@ -428,6 +428,29 @@
       margin-top: 0.85rem;
     }
 
+    .loc-form {
+      display: flex;
+      gap: 0.4rem;
+      flex-wrap: wrap;
+      margin-bottom: 0.75rem;
+    }
+
+    .loc-form[hidden] {
+      display: none;
+    }
+
+    .loc-form input {
+      flex: 1;
+      min-width: 130px;
+      font: inherit;
+      font-size: 0.85rem;
+      padding: 0.35rem 0.6rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text);
+    }
+
     .notes-area {
       width: 100%;
       min-height: 118px;
@@ -587,8 +610,19 @@
       <section class="card">
         <div class="card-head">
           <h2 id="weather-title">Local Weather</h2>
-          <button type="button" id="weather-refresh" class="btn-sm">Refresh</button>
+          <div class="header-actions">
+            <button type="button" id="weather-loc-btn" class="btn-sm">Location</button>
+            <button type="button" id="weather-refresh" class="btn-sm">Refresh</button>
+          </div>
         </div>
+        <form class="loc-form" id="weather-loc-form" hidden>
+          <label for="weather-loc-input" style="position:absolute;width:1px;height:1px;overflow:hidden;">City name</label>
+          <input id="weather-loc-input" type="text" maxlength="60" placeholder="City (e.g. Tokyo)" autocomplete="off">
+          <button type="submit" class="primary btn-sm">Set</button>
+          <button type="button" id="weather-loc-auto" class="btn-sm">Auto</button>
+          <button type="button" id="weather-loc-cancel" class="btn-sm">Cancel</button>
+        </form>
+        <div class="sub" id="weather-loc-status" aria-live="polite"></div>
         <div class="big-num" id="weather-temp">--.- &deg;C</div>
         <div class="sub" id="weather-cond">Loading...</div>
         <div class="weather-grid">
@@ -1044,30 +1078,85 @@
 
     // Local Weather
     const weatherRefreshBtn = document.getElementById("weather-refresh");
+    const weatherLocBtn = document.getElementById("weather-loc-btn");
+    const weatherLocForm = document.getElementById("weather-loc-form");
+    const weatherLocInput = document.getElementById("weather-loc-input");
+    const weatherLocAuto = document.getElementById("weather-loc-auto");
+    const weatherLocCancel = document.getElementById("weather-loc-cancel");
+    const weatherLocStatus = document.getElementById("weather-loc-status");
+
+    function renderWeather(w) {
+      const modeTag = w.mode === "auto" ? " (Auto)" : "";
+      document.getElementById("weather-title").textContent = w.city
+        ? `Weather · ${w.city}${modeTag}`
+        : "Local Weather";
+      if (w.error && w.temp_c === undefined) {
+        document.getElementById("weather-cond").textContent = `Unavailable: ${w.error}`;
+        return;
+      }
+      document.getElementById("weather-temp").textContent = `${Number(w.temp_c).toFixed(1)} °C`;
+      document.getElementById("weather-cond").textContent = w.condition || "--";
+      document.getElementById("weather-feels").textContent = w.feels_c != null ? `${Number(w.feels_c).toFixed(1)} °C` : "--";
+      document.getElementById("weather-hl").textContent =
+        w.high_c != null && w.low_c != null ? `${Math.round(w.high_c)}° / ${Math.round(w.low_c)}°` : "--";
+      document.getElementById("weather-hum").textContent = w.humidity != null ? `${w.humidity}%` : "--";
+      document.getElementById("weather-wind").textContent = w.wind_kmh != null ? `${w.wind_kmh} km/h` : "--";
+    }
+
     async function loadWeather(refresh = false) {
       weatherRefreshBtn.disabled = true;
       try {
         const res = await fetch(`/api/weather${refresh ? "?refresh=1" : ""}`, { cache: "no-store" });
         if (!res.ok) throw new Error("HTTP " + res.status);
-        const w = await res.json();
-        document.getElementById("weather-title").textContent = w.city ? `Weather · ${w.city}` : "Local Weather";
-        if (w.error && w.temp_c === undefined) {
-          document.getElementById("weather-cond").textContent = `Unavailable: ${w.error}`;
-          return;
-        }
-        document.getElementById("weather-temp").textContent = `${Number(w.temp_c).toFixed(1)} °C`;
-        document.getElementById("weather-cond").textContent = w.condition || "--";
-        document.getElementById("weather-feels").textContent = w.feels_c != null ? `${Number(w.feels_c).toFixed(1)} °C` : "--";
-        document.getElementById("weather-hl").textContent =
-          w.high_c != null && w.low_c != null ? `${Math.round(w.high_c)}° / ${Math.round(w.low_c)}°` : "--";
-        document.getElementById("weather-hum").textContent = w.humidity != null ? `${w.humidity}%` : "--";
-        document.getElementById("weather-wind").textContent = w.wind_kmh != null ? `${w.wind_kmh} km/h` : "--";
+        renderWeather(await res.json());
       } catch (err) {
         document.getElementById("weather-cond").textContent = "Weather fetch failed";
       } finally {
         weatherRefreshBtn.disabled = false;
       }
     }
+
+    async function updateWeatherLocation(payload) {
+      weatherLocStatus.textContent = payload.auto ? "Detecting location..." : "Searching city...";
+      try {
+        const res = await fetch("/api/weather/location", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          weatherLocStatus.textContent = data.error || "Could not update location";
+          return;
+        }
+        renderWeather(data);
+        weatherLocStatus.textContent = "";
+        weatherLocForm.hidden = true;
+      } catch (err) {
+        weatherLocStatus.textContent = "Location update failed";
+      }
+    }
+
+    weatherLocBtn.addEventListener("click", () => {
+      weatherLocForm.hidden = !weatherLocForm.hidden;
+      weatherLocStatus.textContent = "";
+      if (!weatherLocForm.hidden) {
+        weatherLocInput.value = "";
+        weatherLocInput.focus();
+      }
+    });
+    weatherLocCancel.addEventListener("click", () => {
+      weatherLocForm.hidden = true;
+      weatherLocStatus.textContent = "";
+    });
+    weatherLocAuto.addEventListener("click", () => updateWeatherLocation({ auto: true }));
+    weatherLocForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const city = weatherLocInput.value.trim();
+      if (!city) return;
+      updateWeatherLocation({ city });
+    });
+
     weatherRefreshBtn.addEventListener("click", () => loadWeather(true));
     loadWeather(false);
     setInterval(() => loadWeather(false), 15 * 60 * 1000);

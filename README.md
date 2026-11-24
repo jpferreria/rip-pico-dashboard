@@ -7,8 +7,8 @@ A standalone MicroPython Wi-Fi web app for the **Raspberry Pi Pico W / Pico 2 W*
 ## Features
 - **Onboard LED Control:** Switch between `Off`, `On`, `Blink`, `Heartbeat`, or flash custom text in **Morse code**.
 - **Live Temperature Chart:** Reads the built-in temperature sensor (`ADC(4)`) every 2 seconds and renders a 60-second SVG sparkline.
-- **System Telemetry & Controls:** Live Wi-Fi signal strength (RSSI), RAM & flash storage usage, uptime, CPU frequency, current date pill, a **Hide Host/IP** privacy toggle, a **Light/Dark** theme toggle, and a two-click **Reboot** button.
-- **Local Weather:** Fetches live temperature, conditions, humidity, wind, and daily high/low from Open-Meteo (free, no API key; configurable in `.env`).
+- **System Telemetry & Controls:** Live Wi-Fi signal strength (RSSI), RAM & flash storage usage, active/unique connection & request counter, uptime, CPU frequency, current date pill, editable dashboard name, a **Hide Host/IP** privacy toggle, a **Light/Dark** theme toggle, and a two-click **Reboot** button.
+- **Local Weather:** Auto-detects your default location via IP geolocation, lets you manually switch to any city (via Open-Meteo geocoding, persisted to flash), and fetches live temperature, conditions, humidity, wind, and daily high/low from Open-Meteo (free, no API key).
 - **LAN Scratchpad:** Persistent notepad stored on the Pico's flash (`notes.txt`) for passing quick text/links across devices on your Wi-Fi.
 - **Wi-Fi Scanner:** On-demand 2.4 GHz network scanner showing nearby SSIDs, channels, signal strength, and security.
 - **News Headlines:** Fetches live headlines directly from the Pico W for **BBC World**, **BBC Tech**, **BBC Science**, and **Hacker News** with 10-minute in-memory caching.
@@ -79,6 +79,8 @@ mpremote repl
 - `POST /api/led` — Updates LED mode, e.g. `{"mode": "morse", "text": "SOS"}`
 - `GET /api/news?feed=world&refresh=0` — Returns cached or refreshed headlines (`world`, `tech`, `science`, `hn`)
 - `GET /api/weather?refresh=0` — Returns cached or refreshed Open-Meteo weather data
+- `POST /api/weather/location` — Sets weather location by city (`{"city": "Tokyo"}`) or auto-detect (`{"auto": true}`)
+- `POST /api/title` — Updates and persists the dashboard title (`{"title": "..."}`)
 - `GET /api/wifi/scan` — Scans nearby 2.4 GHz Wi-Fi networks
 - `GET /api/notes` / `POST /api/notes` — Reads or saves the LAN scratchpad (`notes.txt`)
 - `POST /api/reboot` — Reboots the Pico W
