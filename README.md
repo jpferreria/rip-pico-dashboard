@@ -11,6 +11,7 @@ A standalone MicroPython Wi-Fi web app for the **Raspberry Pi Pico W / Pico 2 W*
 - **System Telemetry & Controls:** Live Wi-Fi signal strength (RSSI), RAM & flash storage usage, active/unique connection & request counter, uptime, CPU frequency, current date pill, editable dashboard name, a **Hide Host/IP** privacy toggle, a **Light/Dark** theme toggle, and a two-click **Reboot** button.
 - **Local Weather:** Auto-detects your default location via IP geolocation, lets you manually switch to any city (via Open-Meteo geocoding, persisted to flash), and fetches live temperature, conditions, humidity, wind, and daily high/low from Open-Meteo (free, no API key).
 - **LAN Scratchpad:** Persistent notepad stored on the Pico's flash (`notes.txt`) for passing quick text/links across devices on your Wi-Fi.
+- **Wi-Fi QR Sharing:** Click **Wi-Fi QR** in the header to display an offline-generated QR code so guests can scan to join the active Wi-Fi network (or open `http://rpi-pico.local/`).
 - **Wi-Fi Scanner:** On-demand 2.4 GHz network scanner showing nearby SSIDs, channels, signal strength, and security.
 - **News Headlines:** Fetches live headlines directly from the Pico W for **BBC World**, **BBC Tech**, **BBC Science**, and **Hacker News** with 10-minute in-memory caching.
 - **Zero External Dependencies:** `index.html` is streamed directly from flash.
@@ -54,7 +55,7 @@ WEATHER_LON=120.9842
 **Option A — Using `mpremote` (terminal):**
 ```bash
 pip install mpremote
-mpremote cp .env env.py news.py weather.py index.html main.py :
+mpremote cp .env env.py news.py weather.py qr.js index.html main.py :
 mpremote reset
 mpremote repl
 ```
@@ -89,5 +90,6 @@ mpremote repl
 - `POST /api/title` — Updates and persists the dashboard title (`{"title": "..."}`)
 - `POST /api/timezone` — Updates and persists the custom World Clock time zone (`{"timezone": "America/New_York"}` or `""` for local)
 - `GET /api/wifi/scan` — Scans nearby 2.4 GHz Wi-Fi networks
+- `GET /api/wifi/qr` — Returns the active Wi-Fi QR payload and dashboard URL for local SVG QR rendering
 - `GET /api/notes` / `POST /api/notes` — Reads or saves the LAN scratchpad (`notes.txt`)
 - `POST /api/reboot` — Reboots the Pico W

@@ -550,6 +550,53 @@
     tr:last-child td {
       border-bottom: none;
     }
+
+    dialog.qr-modal {
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      background: var(--surface);
+      color: var(--text);
+      padding: 1.25rem;
+      max-width: 340px;
+      width: calc(100% - 2rem);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+    }
+
+    dialog.qr-modal::backdrop {
+      background-color: rgba(0, 0, 0, 0.55);
+      backdrop-filter: blur(2px);
+    }
+
+    .qr-tabs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.45rem;
+      margin: 0.75rem 0;
+    }
+
+    .qr-box {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: #ffffff;
+      border-radius: 12px;
+      padding: 0.75rem;
+      margin: 0.75rem 0;
+      min-height: 236px;
+    }
+
+    .qr-box svg {
+      display: block;
+      max-width: 100%;
+      height: auto;
+    }
+
+    .qr-caption {
+      text-align: center;
+      font-size: 0.85rem;
+      color: var(--muted);
+      word-break: break-word;
+    }
   </style>
 </head>
 <body>
@@ -569,6 +616,7 @@
         <div class="sub" id="net-info">Connecting...</div>
       </div>
       <div class="header-actions">
+        <button type="button" id="qr-open-btn" class="toggle-btn">Wi-Fi QR</button>
         <button type="button" id="theme-toggle" class="toggle-btn">Theme</button>
         <button type="button" id="privacy-toggle" class="toggle-btn" aria-pressed="false">Hide Host/IP</button>
         <time class="badge" id="today-date"></time>
@@ -802,6 +850,22 @@
     </main>
   </div>
 
+  <dialog id="qr-dialog" class="qr-modal" closedby="any" aria-labelledby="qr-title">
+    <div class="card-head" style="margin-bottom:0.25rem;">
+      <h2 id="qr-title" style="margin:0;font-size:1rem;">Scan to Connect</h2>
+      <form method="dialog">
+        <button type="submit" class="btn-sm" aria-label="Close QR dialog">Close</button>
+      </form>
+    </div>
+    <div class="qr-tabs" role="group" aria-label="QR code type">
+      <button type="button" data-qr-tab="wifi" aria-pressed="true" class="btn-sm">Join Wi-Fi</button>
+      <button type="button" data-qr-tab="url" aria-pressed="false" class="btn-sm">Open Dashboard</button>
+    </div>
+    <div class="qr-box" id="qr-box"></div>
+    <div class="qr-caption" id="qr-caption">Point your phone camera at the QR code.</div>
+  </dialog>
+
+  <script src="/qr.js"></script>
   <script>
     const modeButtons = document.querySelectorAll("button[data-mode]");
     const morseForm = document.getElementById("morse-form");
@@ -1515,6 +1579,72 @@
         wifiScanBtn.disabled = false;
       }
     });
+    // Wi-Fi & Dashboard QR Modal
+    const qrOpenBtn = document.getElementById("qr-open-btn");
+    const qrDialog = document.getElementById("qr-dialog");
+    const qrBox = document.getElementById("qr-box");
+    const qrCaption = document.getElementById("qr-caption");
+    const qrTabBtns = document.querySelectorAll("button[data-qr-tab]");
+    let qrData = null;
+    let qrTab = "wifi";
+
+    function renderQrModal() {
+      qrTabBtns.forEach((btn) => {
+        btn.setAttribute("aria-pressed", String(btn.dataset.qrTab === qrTab));
+      });
+      qrBox.textContent = "";
+      if (!qrData) {
+        qrCaption.textContent = "Loading QR code...";
+        return;
+      }
+      const payload = qrTab === "wifi" ? qrData.wifi_payload : qrData.dashboard_url;
+      try {
+        const svg = window.PicoQR.toSvgElement(payload, 220);
+        svg.setAttribute("aria-label", qrTab === "wifi" ? `Wi-Fi QR code for ${qrData.ssid}` : `Dashboard QR code for ${qrData.dashboard_url}`);
+        qrBox.appendChild(svg);
+        qrCaption.textContent = qrTab === "wifi"
+          ? `Scan to join Wi-Fi "${qrData.ssid}"`
+          : `Scan to open ${qrData.dashboard_url}`;
+      } catch (err) {
+        qrCaption.textContent = "Could not generate QR code.";
+      }
+    }
+
+    qrOpenBtn.addEventListener("click", async () => {
+      qrTab = "wifi";
+      qrData = null;
+      renderQrModal();
+      qrDialog.showModal();
+      try {
+        const res = await fetch("/api/wifi/qr", { cache: "no-store" });
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        qrData = await res.json();
+        renderQrModal();
+      } catch (err) {
+        qrCaption.textContent = "Failed to load Wi-Fi QR info.";
+      }
+    });
+
+    qrTabBtns.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        qrTab = btn.dataset.qrTab;
+        renderQrModal();
+      });
+    });
+
+    // Light-dismiss fallback for browsers without <dialog closedby> support (e.g. Safari)
+    if (!("closedBy" in HTMLDialogElement.prototype)) {
+      qrDialog.addEventListener("click", (event) => {
+        if (event.target !== qrDialog) return;
+        const rect = qrDialog.getBoundingClientRect();
+        const inside =
+          rect.top <= event.clientY &&
+          event.clientY <= rect.top + rect.height &&
+          rect.left <= event.clientX &&
+          event.clientX <= rect.left + rect.width;
+        if (!inside) qrDialog.close();
+      });
+    }
   </script>
 </body>
 </html>

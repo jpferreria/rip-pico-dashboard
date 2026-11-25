@@ -61,6 +61,7 @@ if not WIFI_NETWORKS:
     )
 
 connected_ssid = WIFI_NETWORKS[0][0]
+connected_password = WIFI_NETWORKS[0][1]
 
 # Hardware peripherals
 led = machine.Pin("LED", machine.Pin.OUT)
@@ -295,9 +296,36 @@ def _try_connect_one(ssid, password, timeout_s=12):
     return True
 
 
+def _escape_wifi_qr(val):
+    out = []
+    for ch in str(val):
+        if ch in ("\\", ";", ",", ":"):
+            out.append("\\" + ch)
+        else:
+            out.append(ch)
+    return "".join(out)
+
+
+def get_wifi_qr_info():
+    ip = wlan.ifconfig()[0] if wlan.isconnected() else "0.0.0.0"
+    if connected_password:
+        payload = "WIFI:T:WPA;S:{};P:{};;".format(
+            _escape_wifi_qr(connected_ssid),
+            _escape_wifi_qr(connected_password),
+        )
+    else:
+        payload = "WIFI:T:nopass;S:{};;".format(_escape_wifi_qr(connected_ssid))
+    return {
+        "ssid": connected_ssid,
+        "wifi_payload": payload,
+        "dashboard_url": "http://{}/".format(MDNS_HOST),
+        "ip_url": "http://{}/".format(ip),
+    }
+
+
 def connect_wifi(timeout_s=12):
     """Connect to the first available configured 2.4 GHz Wi-Fi network (with fallback)."""
-    global connected_ssid
+    global connected_ssid, connected_password
     # Set hostname BEFORE activating WLAN so lwIP's built-in mDNS advertises `<HOSTNAME>.local`
     try:
         current_host = network.hostname()
@@ -320,6 +348,7 @@ def connect_wifi(timeout_s=12):
         for ssid, password in candidates:
             if _try_connect_one(ssid, password, timeout_s=timeout_s):
                 connected_ssid = ssid
+                connected_password = password
                 break
         else:
             set_led_hw(False)
@@ -543,8 +572,14 @@ async def handle_client(reader, writer):
         if method == "GET" and path in ("/", "/index.html"):
             await send_file(writer, "index.html")
 
+        elif method == "GET" and path == "/qr.js":
+            await send_file(writer, "qr.js", "application/javascript; charset=utf-8")
+
         elif method == "GET" and path == "/api/status":
             await send_json(writer, get_status(client_ip=peer_ip))
+
+        elif method == "GET" and path == "/api/wifi/qr":
+            await send_json(writer, get_wifi_qr_info())
 
         elif method == "GET" and path == "/api/news":
             feed = query.get("feed", "world").lower()
