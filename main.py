@@ -41,7 +41,7 @@ def load_wifi_networks():
 
 
 WIFI_NETWORKS = load_wifi_networks()
-HOSTNAME = env.getenv("HOSTNAME", "rpi-pico")
+HOSTNAME = env.getenv("HOSTNAME", "dashboard")
 MDNS_HOST = HOSTNAME.strip().lower().rstrip(".")
 if not MDNS_HOST.endswith(".local"):
     MDNS_HOST += ".local"

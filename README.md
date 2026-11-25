@@ -11,7 +11,7 @@ A standalone MicroPython Wi-Fi web app for the **Raspberry Pi Pico W / Pico 2 W*
 - **System Telemetry & Controls:** Live Wi-Fi signal strength (RSSI), RAM & flash storage usage, active/unique connection & request counter, uptime, CPU frequency, current date pill, editable dashboard name, a **Hide Host/IP** privacy toggle, a **Light/Dark** theme toggle, and a two-click **Reboot** button.
 - **Local Weather:** Auto-detects your default location via IP geolocation, lets you manually switch to any city (via Open-Meteo geocoding, persisted to flash), and fetches live temperature, conditions, humidity, wind, and daily high/low from Open-Meteo (free, no API key).
 - **LAN Scratchpad:** Persistent notepad stored on the Pico's flash (`notes.txt`) for passing quick text/links across devices on your Wi-Fi.
-- **Wi-Fi QR Sharing:** Click **Wi-Fi QR** in the header to display an offline-generated QR code so guests can scan to join the active Wi-Fi network (or open `http://rpi-pico.local/`).
+- **Wi-Fi QR Sharing:** Click **Wi-Fi QR** in the header to display an offline-generated QR code so guests can scan to join the active Wi-Fi network (or open `http://dashboard.local/`).
 - **Wi-Fi Scanner:** On-demand 2.4 GHz network scanner showing nearby SSIDs, channels, signal strength, and security.
 - **News Headlines:** Fetches live headlines directly from the Pico W for **BBC World**, **BBC Tech**, **BBC Science**, and **Hacker News** with 10-minute in-memory caching.
 - **Zero External Dependencies:** `index.html` is streamed directly from flash.
@@ -41,7 +41,7 @@ WIFI_PASSWORD=your-wifi-password
 # WIFI_SSID_2=your-hotspot-ssid
 # WIFI_PASSWORD_2=your-hotspot-password
 
-HOSTNAME=rpi-pico
+HOSTNAME=dashboard
 PORT=80
 
 # Optional weather location (defaults to Manila)
@@ -68,9 +68,9 @@ mpremote repl
 ### 4. Open the Dashboard
 - While connecting, the onboard LED blinks rapidly; once connected, it double-blinks and prints the URLs in the serial console:
   ```text
-  Connected! Open http://rpi-pico.local/ or http://192.168.x.x/
+  Connected! Open http://dashboard.local/ or http://192.168.x.x/
   ```
-- Open **http://rpi-pico.local/** (or the printed IP address) from any phone or computer on the same Wi-Fi network. You can customize the `.local` name by changing `HOSTNAME` in `.env`.
+- Open **http://dashboard.local/** (or the printed IP address) from any phone or computer on the same Wi-Fi network. You can customize the `.local` name by changing `HOSTNAME` in `.env`.
 
 ## Project Structure
 - `main.py` — Async HTTP server, Wi-Fi auto-reconnect, LED/Morse controller, telemetry, Wi-Fi scanner, and flash notes API
