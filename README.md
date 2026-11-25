@@ -35,6 +35,11 @@ Edit `.env`:
 ```dotenv
 WIFI_SSID=your-2.4ghz-ssid
 WIFI_PASSWORD=your-wifi-password
+
+# Optional fallback networks (e.g. phone hotspot; supports _2 through _5)
+# WIFI_SSID_2=your-hotspot-ssid
+# WIFI_PASSWORD_2=your-hotspot-password
+
 HOSTNAME=rpi-pico
 PORT=80
 

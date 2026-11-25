@@ -25,8 +25,22 @@ except ImportError:
 
 env.load_env(".env")
 
-WIFI_SSID = env.getenv("WIFI_SSID")
-WIFI_PASSWORD = env.getenv("WIFI_PASSWORD")
+def load_wifi_networks():
+    """Load primary + optional fallback Wi-Fi credentials from .env (WIFI_SSID[_2.._5])."""
+    nets = []
+    primary_ssid = env.getenv("WIFI_SSID")
+    primary_pass = env.getenv("WIFI_PASSWORD")
+    if primary_ssid:
+        nets.append((primary_ssid, primary_pass or ""))
+    for idx in range(2, 6):
+        ssid = env.getenv("WIFI_SSID_{}".format(idx))
+        if ssid:
+            pwd = env.getenv("WIFI_PASSWORD_{}".format(idx)) or ""
+            nets.append((ssid, pwd))
+    return nets
+
+
+WIFI_NETWORKS = load_wifi_networks()
 HOSTNAME = env.getenv("HOSTNAME", "rpi-pico")
 MDNS_HOST = HOSTNAME.strip().lower().rstrip(".")
 if not MDNS_HOST.endswith(".local"):
@@ -41,10 +55,12 @@ TITLE_FILE = "title.txt"
 DEFAULT_TITLE = "Raspberry Pi Pico W"
 TZ_FILE = "timezone.txt"
 
-if not WIFI_SSID or not WIFI_PASSWORD:
+if not WIFI_NETWORKS:
     raise RuntimeError(
-        "Missing WIFI_SSID or WIFI_PASSWORD! Copy .env.example to .env and set your Wi-Fi credentials."
+        "Missing WIFI_SSID! Copy .env.example to .env and set your Wi-Fi credentials."
     )
+
+connected_ssid = WIFI_NETWORKS[0][0]
 
 # Hardware peripherals
 led = machine.Pin("LED", machine.Pin.OUT)
@@ -225,7 +241,7 @@ def get_status(client_ip=""):
         "rssi": rssi,
         "ip": wlan.ifconfig()[0] if wlan.isconnected() else "0.0.0.0",
         "client_ip": client_ip,
-        "ssid": WIFI_SSID,
+        "ssid": connected_ssid,
         "mdns_host": MDNS_HOST,
         "cpu_mhz": machine.freq() // 1_000_000,
         "active_clients": active_clients,
@@ -236,8 +252,52 @@ def get_status(client_ip=""):
     }
 
 
-def connect_wifi(timeout_s=20):
-    """Connect to 2.4 GHz Wi-Fi with mDNS hostname registration and LED feedback."""
+def _order_candidates():
+    """Prioritize configured networks currently visible in a Wi-Fi scan, keeping priority order."""
+    if len(WIFI_NETWORKS) <= 1:
+        return list(WIFI_NETWORKS)
+
+    visible = set()
+    try:
+        for entry in wlan.scan():
+            name = entry[0].decode("utf-8", "ignore").strip()
+            if name:
+                visible.add(name)
+    except Exception:
+        return list(WIFI_NETWORKS)
+
+    in_range = [n for n in WIFI_NETWORKS if n[0] in visible]
+    not_seen = [n for n in WIFI_NETWORKS if n[0] not in visible]
+    return in_range + not_seen
+
+
+def _try_connect_one(ssid, password, timeout_s=12):
+    """Attempt to connect to a single Wi-Fi network; returns True on success."""
+    print("Connecting to Wi-Fi:", ssid)
+    try:
+        wlan.disconnect()
+    except Exception:
+        pass
+    time.sleep_ms(100)
+    wlan.connect(ssid, password)
+
+    start = time.ticks_ms()
+    while not wlan.isconnected():
+        status = wlan.status()
+        if status < 0:
+            print("Failed to connect to {} (status={})".format(ssid, status))
+            return False
+        if time.ticks_diff(time.ticks_ms(), start) > timeout_s * 1000:
+            print("Timed out connecting to", ssid)
+            return False
+        set_led_hw(not led_state)
+        time.sleep_ms(200)
+    return True
+
+
+def connect_wifi(timeout_s=12):
+    """Connect to the first available configured 2.4 GHz Wi-Fi network (with fallback)."""
+    global connected_ssid
     # Set hostname BEFORE activating WLAN so lwIP's built-in mDNS advertises `<HOSTNAME>.local`
     try:
         current_host = network.hostname()
@@ -256,20 +316,14 @@ def connect_wifi(timeout_s=20):
     wlan.active(True)
 
     if not wlan.isconnected():
-        print("Connecting to Wi-Fi:", WIFI_SSID)
-        wlan.connect(WIFI_SSID, WIFI_PASSWORD)
-
-        start = time.ticks_ms()
-        while not wlan.isconnected():
-            status = wlan.status()
-            if status < 0:
-                set_led_hw(False)
-                raise RuntimeError("Wi-Fi connection failed (status={})".format(status))
-            if time.ticks_diff(time.ticks_ms(), start) > timeout_s * 1000:
-                set_led_hw(False)
-                raise RuntimeError("Wi-Fi connection timed out")
-            set_led_hw(not led_state)
-            time.sleep_ms(200)
+        candidates = _order_candidates()
+        for ssid, password in candidates:
+            if _try_connect_one(ssid, password, timeout_s=timeout_s):
+                connected_ssid = ssid
+                break
+        else:
+            set_led_hw(False)
+            raise RuntimeError("Could not connect to any configured Wi-Fi network")
 
     # Confirm connection with a brief double-blink
     set_led_hw(False)
@@ -280,7 +334,7 @@ def connect_wifi(timeout_s=20):
         time.sleep_ms(120)
 
     ip = wlan.ifconfig()[0]
-    print("Connected! Open http://{}/ or http://{}/".format(MDNS_HOST, ip))
+    print("Connected to {}! Open http://{}/ or http://{}/".format(connected_ssid, MDNS_HOST, ip))
     return ip
 
 
